@@ -1,0 +1,70 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getMpAccessToken } from "@/lib/mp";
+
+export const runtime = "nodejs";
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { items, orderId, payer } = body;
+
+    const host = request.headers.get("host") || "localhost:3000";
+    const protocol = host.includes("localhost") ? "http" : "https";
+    const origin = process.env.NEXT_PUBLIC_SITE_URL || `${protocol}://${host}` || "http://localhost:3000";
+
+    const successUrl = `${origin}/checkout?status=success`;
+    const failureUrl = `${origin}/checkout?status=failure`;
+    const pendingUrl = `${origin}/checkout?status=pending`;
+
+    const isLocalhost = origin.includes("localhost") || origin.includes("127.0.0.1");
+
+    const preference: Record<string, unknown> = {
+      items: items.map((item: { title: string; unit_price: number; quantity: number }) => ({
+        title: item.title,
+        unit_price: item.unit_price,
+        quantity: item.quantity,
+        currency_id: "ARS",
+      })),
+      payer: {
+        name: payer?.name || "",
+        email: payer?.email || "",
+      },
+      back_urls: {
+        success: successUrl,
+        failure: failureUrl,
+        pending: pendingUrl,
+      },
+      external_reference: orderId,
+      notification_url: `${origin}/api/payment/webhook`,
+    };
+
+    // auto_return requires public URLs; skip on localhost
+    if (!isLocalhost) {
+      preference.auto_return = "approved";
+    }
+
+    const res = await fetch("https://api.mercadopago.com/checkout/preferences", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getMpAccessToken()}`,
+      },
+      body: JSON.stringify(preference),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      console.error("Mercado Pago error:", data);
+      return NextResponse.json({ error: data.message || "MP error" }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      preferenceId: data.id,
+      initPoint: data.init_point,
+      sandboxInitPoint: data.sandbox_init_point,
+    });
+  } catch (error) {
+    console.error("Error creating preference:", error);
+    return NextResponse.json({ error: "Failed to create preference" }, { status: 500 });
+  }
+}
