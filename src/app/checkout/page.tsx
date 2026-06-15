@@ -1,18 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCart } from "@/store/cart";
 import { useAuth } from "@/components/AuthProvider";
 import { DeliverySelector } from "@/components/DeliverySelector";
 import { DeliveryMethod } from "@/types";
 import { useToastStore } from "@/store/toast";
 import { Breadcrumb } from "@/components/Breadcrumb";
-import { ArrowRight, CheckCircle, AlertCircle } from "lucide-react";
+import { ArrowRight, CheckCircle, AlertCircle, XCircle } from "lucide-react";
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const items = useCart((s) => s.items);
   const clearCart = useCart((s) => s.clearCart);
   const totalPrice = useCart((s) => s.totalPrice());
@@ -23,7 +24,31 @@ export default function CheckoutPage() {
   const [status, setStatus] = useState<"idle" | "success" | "failure">("idle");
   const addToast = useToastStore((s) => s.addToast);
 
-  if (items.length === 0 && status !== "success") {
+  const mpStatus = searchParams.get("status");
+
+  useEffect(() => {
+    if (mpStatus === "success") {
+      addToast({
+        message: "¡Pago confirmado! Tu pedido está en proceso.",
+        type: "success",
+        duration: 5000,
+      });
+    } else if (mpStatus === "failure") {
+      addToast({
+        message: "El pago fue rechazado. Intentá de nuevo o contactanos.",
+        type: "error",
+        duration: 5000,
+      });
+    } else if (mpStatus === "pending") {
+      addToast({
+        message: "Pago pendiente. Te avisamos cuando se confirme.",
+        type: "info",
+        duration: 5000,
+      });
+    }
+  }, [mpStatus]);
+
+  if (items.length === 0 && status !== "success" && !mpStatus) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-24 text-center text-muted-foreground">
         <p className="text-sm">Tu carrito está vacío. Agregá productos para continuar.</p>
@@ -43,9 +68,53 @@ export default function CheckoutPage() {
     );
   }
 
+  if (mpStatus === "success") {
+    return (
+      <div className="mx-auto flex max-w-xl flex-col items-center px-4 py-24 text-center">
+        <CheckCircle className="mb-4 h-12 w-12 text-green-600" />
+        <h1 className="mb-2 text-xl font-semibold">¡Pago confirmado!</h1>
+        <p className="mb-6 text-sm text-muted-foreground">
+          Tu pedido fue procesado correctamente. Te contactaremos para coordinar la entrega.
+        </p>
+      </div>
+    );
+  }
+
+  if (mpStatus === "failure") {
+    return (
+      <div className="mx-auto flex max-w-xl flex-col items-center px-4 py-24 text-center">
+        <XCircle className="mb-4 h-12 w-12 text-red-600" />
+        <h1 className="mb-2 text-xl font-semibold">Pago rechazado</h1>
+        <p className="mb-6 text-sm text-muted-foreground">
+          El pago no pudo ser procesado. Podés intentar de nuevo o usar otro método de pago.
+        </p>
+      </div>
+    );
+  }
+
+  if (mpStatus === "pending") {
+    return (
+      <div className="mx-auto flex max-w-xl flex-col items-center px-4 py-24 text-center">
+        <AlertCircle className="mb-4 h-12 w-12 text-amber-600" />
+        <h1 className="mb-2 text-xl font-semibold">Pago pendiente</h1>
+        <p className="mb-6 text-sm text-muted-foreground">
+          Tu pago está siendo procesado. Te avisaremos por email cuando se confirme.
+        </p>
+      </div>
+    );
+  }
+
   const handleCheckout = async () => {
     if (!user) {
       router.push("/login?redirect=/checkout");
+      return;
+    }
+    if (!user.email) {
+      addToast({
+        message: "Tu cuenta no tiene un email registrado. Actualizá tu perfil.",
+        type: "error",
+        duration: 4000,
+      });
       return;
     }
     setLoading(true);
@@ -95,7 +164,7 @@ export default function CheckoutPage() {
             quantity: i.quantity,
           })),
           orderId: orderData.order.id,
-          payer: { name: user.displayName || "", email: user.email || "" },
+          payer: { name: user.displayName || "Cliente", email: user.email },
         }),
       });
       const prefData = await prefRes.json();
@@ -178,5 +247,17 @@ export default function CheckoutPage() {
         )}
       </button>
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center text-muted-foreground">
+        <p className="text-sm">Cargando checkout...</p>
+      </div>
+    }>
+      <CheckoutContent />
+    </Suspense>
   );
 }

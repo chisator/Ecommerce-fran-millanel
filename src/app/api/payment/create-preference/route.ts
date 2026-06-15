@@ -18,16 +18,19 @@ export async function POST(request: NextRequest) {
 
     const isLocalhost = origin.includes("localhost") || origin.includes("127.0.0.1");
 
+    // Ensure price is a valid number with 2 decimal places
+    const formattedItems = items.map((item: { title: string; unit_price: number; quantity: number }) => ({
+      title: item.title.slice(0, 256), // MP limit
+      unit_price: Number(Number(item.unit_price).toFixed(2)),
+      quantity: Number(item.quantity),
+      currency_id: "ARS",
+    }));
+
     const preference: Record<string, unknown> = {
-      items: items.map((item: { title: string; unit_price: number; quantity: number }) => ({
-        title: item.title,
-        unit_price: item.unit_price,
-        quantity: item.quantity,
-        currency_id: "ARS",
-      })),
+      items: formattedItems,
       payer: {
-        name: payer?.name || "",
-        email: payer?.email || "",
+        name: (payer?.name || "Cliente").slice(0, 60),
+        email: payer?.email || "cliente@example.com",
       },
       back_urls: {
         success: successUrl,
@@ -36,6 +39,7 @@ export async function POST(request: NextRequest) {
       },
       external_reference: orderId,
       notification_url: `${origin}/api/payment/webhook`,
+      statement_descriptor: "FRANCOSMETICOS",
     };
 
     // auto_return requires public URLs; skip on localhost
