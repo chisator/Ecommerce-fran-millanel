@@ -93,9 +93,7 @@ export async function PUT(request: NextRequest) {
     }
     const decoded = await getAdminAuth().verifyIdToken(token);
     const userSnap = await getAdminDb().collection("users").doc(decoded.uid).get();
-    if (!userSnap.exists || userSnap.data()?.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const isAdmin = userSnap.exists && userSnap.data()?.role === "admin";
 
     const body = await request.json();
     const { id, ...data } = body;
@@ -107,6 +105,28 @@ export async function PUT(request: NextRequest) {
     if (!snap.exists) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
+
+    const orderData = snap.data();
+    const isOwner = orderData?.userId === decoded.uid;
+
+    // If not admin, only allow owner to cancel their own pending orders
+    if (!isAdmin) {
+      if (!isOwner) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      // Only allow cancelling pending orders
+      if (orderData?.status !== "pending" || orderData?.paymentStatus === "approved") {
+        return NextResponse.json({ error: "Cannot modify this order" }, { status: 403 });
+      }
+      // Only allow status changes to cancelled
+      if (data.status && data.status !== "cancelled") {
+        return NextResponse.json({ error: "Can only cancel orders" }, { status: 403 });
+      }
+      if (data.paymentStatus && data.paymentStatus !== "rejected") {
+        return NextResponse.json({ error: "Can only cancel orders" }, { status: 403 });
+      }
+    }
+
     await ref.update({ ...data, updatedAt: new Date().toISOString() });
     const updated = await ref.get();
     return NextResponse.json({ order: { id: updated.id, ...updated.data() } });

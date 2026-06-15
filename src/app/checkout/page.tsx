@@ -8,7 +8,8 @@ import { DeliverySelector } from "@/components/DeliverySelector";
 import { DeliveryMethod } from "@/types";
 import { useToastStore } from "@/store/toast";
 import { Breadcrumb } from "@/components/Breadcrumb";
-import { ArrowRight, CheckCircle, AlertCircle, XCircle } from "lucide-react";
+import { ArrowRight, CheckCircle, AlertCircle, XCircle, RefreshCw, ShoppingBag } from "lucide-react";
+import Link from "next/link";
 
 function CheckoutContent() {
   const { user } = useAuth();
@@ -25,9 +26,14 @@ function CheckoutContent() {
   const addToast = useToastStore((s) => s.addToast);
 
   const mpStatus = searchParams.get("status");
+  const paymentId = searchParams.get("payment_id");
+  const merchantOrderId = searchParams.get("merchant_order_id");
 
+  // Verificar si el pago fue confirmado por webhook mientras el usuario está en MP
   useEffect(() => {
-    if (mpStatus === "success") {
+    if (mpStatus === "success" && paymentId) {
+      // El pago fue exitoso, limpiar carrito y mostrar confirmación
+      clearCart();
       addToast({
         message: "¡Pago confirmado! Tu pedido está en proceso.",
         type: "success",
@@ -35,71 +41,122 @@ function CheckoutContent() {
       });
     } else if (mpStatus === "failure") {
       addToast({
-        message: "El pago fue rechazado. Intentá de nuevo o contactanos.",
+        message: "El pago fue rechazado. Intentá de nuevo o probá con otro método.",
         type: "error",
         duration: 5000,
       });
     } else if (mpStatus === "pending") {
       addToast({
-        message: "Pago pendiente. Te avisamos cuando se confirme.",
+        message: "Pago pendiente. Te avisamos por email cuando se confirme.",
         type: "info",
         duration: 5000,
       });
     }
-  }, [mpStatus]);
+  }, [mpStatus, paymentId]);
 
-  if (items.length === 0 && status !== "success" && !mpStatus) {
+  if (items.length === 0 && !mpStatus) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-24 text-center text-muted-foreground">
-        <p className="text-sm">Tu carrito está vacío. Agregá productos para continuar.</p>
-      </div>
-    );
-  }
-
-  if (status === "success") {
-    return (
-      <div className="mx-auto flex max-w-xl flex-col items-center px-4 py-24 text-center">
-        <CheckCircle className="mb-4 h-12 w-12 text-green-600" />
-        <h1 className="mb-2 text-xl font-semibold">¡Pedido realizado!</h1>
-        <p className="mb-6 text-sm text-muted-foreground">
-          Te redirigimos a Mercado Pago para completar el pago. Una vez aprobado, coordinamos la entrega.
+      <div className="mx-auto flex max-w-xl flex-col items-center justify-center px-6 py-32 text-center">
+        <ShoppingBag className="mb-6 h-14 w-14 text-muted-foreground/30" strokeWidth={1} />
+        <h1 className="mb-3 font-[family-name:var(--font-heading)] text-2xl font-medium tracking-tight">
+          Tu carrito está vacío
+        </h1>
+        <p className="mb-10 max-w-xs text-sm leading-relaxed text-muted-foreground">
+          Agregá productos para empezar tu compra.
         </p>
+        <Link
+          href="/shop"
+          className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-foreground px-8 py-4 text-sm font-semibold text-background transition-transform duration-[160ms] active:scale-[0.97]"
+          style={{ transitionTimingFunction: "var(--ease-out)" }}
+        >
+          <span className="relative z-10 tracking-wide">Ver tienda</span>
+          <ArrowRight className="relative z-10 h-4 w-4" />
+        </Link>
       </div>
     );
   }
 
+  // Pago exitoso
   if (mpStatus === "success") {
     return (
-      <div className="mx-auto flex max-w-xl flex-col items-center px-4 py-24 text-center">
-        <CheckCircle className="mb-4 h-12 w-12 text-green-600" />
-        <h1 className="mb-2 text-xl font-semibold">¡Pago confirmado!</h1>
-        <p className="mb-6 text-sm text-muted-foreground">
+      <div className="mx-auto flex max-w-xl flex-col items-center px-6 py-24 text-center">
+        <CheckCircle className="mb-6 h-14 w-14 text-green-600" strokeWidth={1.5} />
+        <h1 className="mb-4 font-[family-name:var(--font-heading)] text-3xl font-medium tracking-tight">
+          ¡Pago confirmado!
+        </h1>
+        <p className="mb-8 max-w-sm text-sm leading-relaxed text-muted-foreground">
           Tu pedido fue procesado correctamente. Te contactaremos para coordinar la entrega.
         </p>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Link
+            href="/orders"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-8 py-4 text-sm font-semibold text-background transition-transform duration-[160ms] active:scale-[0.97]"
+            style={{ transitionTimingFunction: "var(--ease-out)" }}
+          >
+            Ver mis pedidos
+          </Link>
+          <Link
+            href="/shop"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-8 py-4 text-sm font-medium transition-colors duration-200 hover:bg-muted"
+            style={{ transitionTimingFunction: "var(--ease-out)" }}
+          >
+            Seguir comprando
+          </Link>
+        </div>
       </div>
     );
   }
 
+  // Pago fallido
   if (mpStatus === "failure") {
     return (
-      <div className="mx-auto flex max-w-xl flex-col items-center px-4 py-24 text-center">
-        <XCircle className="mb-4 h-12 w-12 text-red-600" />
-        <h1 className="mb-2 text-xl font-semibold">Pago rechazado</h1>
-        <p className="mb-6 text-sm text-muted-foreground">
-          El pago no pudo ser procesado. Podés intentar de nuevo o usar otro método de pago.
+      <div className="mx-auto flex max-w-xl flex-col items-center px-6 py-24 text-center">
+        <XCircle className="mb-6 h-14 w-14 text-red-600" strokeWidth={1.5} />
+        <h1 className="mb-4 font-[family-name:var(--font-heading)] text-3xl font-medium tracking-tight">
+          Pago rechazado
+        </h1>
+        <p className="mb-8 max-w-sm text-sm leading-relaxed text-muted-foreground">
+          El pago no pudo ser procesado. Tu carrito sigue intacto, podés intentar de nuevo.
         </p>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Link
+            href="/cart"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-8 py-4 text-sm font-semibold text-background transition-transform duration-[160ms] active:scale-[0.97]"
+            style={{ transitionTimingFunction: "var(--ease-out)" }}
+          >
+            <RefreshCw className="h-4 w-4" />
+            Reintentar pago
+          </Link>
+          <Link
+            href="/shop"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-8 py-4 text-sm font-medium transition-colors duration-200 hover:bg-muted"
+            style={{ transitionTimingFunction: "var(--ease-out)" }}
+          >
+            Seguir comprando
+          </Link>
+        </div>
       </div>
     );
   }
 
+  // Pago pendiente
   if (mpStatus === "pending") {
     return (
-      <div className="mx-auto flex max-w-xl flex-col items-center px-4 py-24 text-center">
-        <AlertCircle className="mb-4 h-12 w-12 text-amber-600" />
-        <h1 className="mb-2 text-xl font-semibold">Pago pendiente</h1>
-        <p className="mb-6 text-sm text-muted-foreground">
+      <div className="mx-auto flex max-w-xl flex-col items-center px-6 py-24 text-center">
+        <AlertCircle className="mb-6 h-14 w-14 text-amber-600" strokeWidth={1.5} />
+        <h1 className="mb-4 font-[family-name:var(--font-heading)] text-3xl font-medium tracking-tight">
+          Pago pendiente
+        </h1>
+        <p className="mb-8 max-w-sm text-sm leading-relaxed text-muted-foreground">
           Tu pago está siendo procesado. Te avisaremos por email cuando se confirme.
         </p>
+        <Link
+          href="/orders"
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-8 py-4 text-sm font-semibold text-background transition-transform duration-[160ms] active:scale-[0.97]"
+          style={{ transitionTimingFunction: "var(--ease-out)" }}
+        >
+          Ver mis pedidos
+        </Link>
       </div>
     );
   }
@@ -170,8 +227,8 @@ function CheckoutContent() {
       const prefData = await prefRes.json();
       if (!prefRes.ok) throw new Error(prefData.error || "Failed to create preference");
 
-      clearCart();
-      setStatus("success");
+      // NO limpiar el carrito todavía. Solo redirigir a MP.
+      // El carrito se limpiará cuando el webhook confirme el pago o cuando vuelva con success.
       if (prefData.initPoint) {
         window.location.href = prefData.initPoint;
       } else if (prefData.sandboxInitPoint) {
