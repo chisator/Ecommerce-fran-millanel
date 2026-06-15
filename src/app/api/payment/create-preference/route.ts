@@ -31,6 +31,19 @@ export async function POST(request: NextRequest) {
       payer: {
         name: (payer?.name || "Cliente").slice(0, 60),
         email: payer?.email || "cliente@example.com",
+        identification: {
+          type: "DNI",
+          number: "12345678",
+        },
+        phone: {
+          area_code: "",
+          number: "1112345678",
+        },
+        address: {
+          zip_code: "",
+          street_name: "",
+          street_number: null,
+        },
       },
       back_urls: {
         success: successUrl,
