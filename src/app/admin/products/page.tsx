@@ -122,13 +122,15 @@ export default function AdminProductsPage() {
           images: [...(prev.images || []), result.url],
         }));
       } else {
+        console.error("Upload error:", result.error);
         setUploadingFiles((prev) =>
           prev.map((f) => (f.id === uploadingFile.id ? { ...f, error: result.error || "Error al subir" } : f))
         );
       }
-    } catch {
+    } catch (err) {
+      console.error("Network error:", err);
       setUploadingFiles((prev) =>
-        prev.map((f) => (f.id === uploadingFile.id ? { ...f, error: "Error de red" } : f))
+        prev.map((f) => (f.id === uploadingFile.id ? { ...f, error: "Error de red. Verificá tu conexión." } : f))
       );
     }
   };

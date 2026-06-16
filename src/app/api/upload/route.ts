@@ -1,19 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cloudinary } from "@/lib/cloudinary";
-import { getAdminAuth } from "@/lib/firebase-admin";
+import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
+    // Check Cloudinary config
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      console.error("Cloudinary env vars missing");
+      return NextResponse.json({ error: "Server config error: Cloudinary not configured" }, { status: 500 });
+    }
+
     // Verify admin token
     const token = request.headers.get("authorization")?.replace("Bearer ", "");
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const decoded = await getAdminAuth().verifyIdToken(token);
-    const userSnap = await (await import("@/lib/firebase-admin")).getAdminDb().collection("users").doc(decoded.uid).get();
+    const userSnap = await getAdminDb().collection("users").doc(decoded.uid).get();
     if (!userSnap.exists || userSnap.data()?.role !== "admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -45,32 +50,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Cloudinary upload error:", error);
-    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const token = request.headers.get("authorization")?.replace("Bearer ", "");
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const decoded = await getAdminAuth().verifyIdToken(token);
-    const userSnap = await (await import("@/lib/firebase-admin")).getAdminDb().collection("users").doc(decoded.uid).get();
-    if (!userSnap.exists || userSnap.data()?.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const publicId = searchParams.get("publicId");
-    if (!publicId) {
-      return NextResponse.json({ error: "Missing publicId" }, { status: 400 });
-    }
-
-    await cloudinary.uploader.destroy(publicId);
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Cloudinary delete error:", error);
-    return NextResponse.json({ error: "Delete failed" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Upload failed";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
