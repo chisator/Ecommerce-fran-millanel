@@ -20,14 +20,14 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
     >
       <Link
         href={`/product/${product.id}`}
-        className="relative mb-5 aspect-[3/4] overflow-hidden rounded-2xl bg-muted"
+        className="relative mb-5 aspect-square overflow-hidden rounded-2xl bg-muted max-h-[320px]"
       >
         {product.images[0] ? (
           <Image
             src={product.images[0]}
             alt={product.name}
             fill
-            className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+            className="object-cover object-center transition-transform duration-700 group-hover:scale-[1.03]"
             style={{ transitionTimingFunction: "var(--ease-out)" }}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />

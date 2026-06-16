@@ -109,7 +109,7 @@ export default function ProductPage() {
             style={{ animation: "fadeInUp 700ms var(--ease-out) 100ms both" }}
           >
             <div
-              className="relative aspect-[3/4] cursor-zoom-in overflow-hidden rounded-2xl bg-muted"
+              className="relative aspect-square cursor-zoom-in overflow-hidden rounded-2xl bg-muted max-h-[500px]"
               onClick={() => images.length > 0 && setLightboxOpen(true)}
             >
               {images[selectedImage] ? (
@@ -243,7 +243,7 @@ export default function ProductPage() {
           )}
 
           <div
-            className="relative mx-16 aspect-[3/4] w-full max-w-3xl"
+            className="relative mx-16 aspect-square w-full max-w-3xl max-h-[80vh]"
             onClick={(e) => e.stopPropagation()}
             style={{ animation: "modalIn 300ms var(--ease-out) forwards" }}
           >
