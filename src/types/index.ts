@@ -69,4 +69,5 @@ export interface SiteConfig {
   ctaTitle?: string;
   ctaSubtitle?: string;
   values?: { icon: string; title: string; desc: string }[];
+  categories?: { name: string; image?: string }[];
 }

@@ -31,7 +31,7 @@ export default function Icon() {
             fontFamily: "Georgia, serif",
           }}
         >
-          M
+          F
         </span>
       </div>
     ),

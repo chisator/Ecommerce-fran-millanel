@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { SiteConfig, Product } from "@/types";
 import { ProductCard } from "@/components/ProductCard";
-import { Sparkles, Truck, Shield, CheckCircle, X, Search, GripVertical } from "lucide-react";
+import { Sparkles, Truck, Shield, CheckCircle, X, Search, ImageIcon } from "lucide-react";
+import Image from "next/image";
 
 const iconMap: Record<string, React.ReactNode> = {
   sparkles: <Sparkles className="h-5 w-5" strokeWidth={1.5} />,
@@ -79,6 +80,19 @@ export default function AdminSitePage() {
         return prev;
       }
       return { ...prev, featuredProductIds: [...ids, productId] };
+    });
+  };
+
+  const updateCategoryImage = (index: number, imageUrl: string) => {
+    setConfig((prev) => {
+      if (!prev) return prev;
+      const cats = [...(prev.categories || [
+        { name: "Cuidado facial" },
+        { name: "Maquillaje" },
+        { name: "Accesorios" },
+      ])];
+      cats[index] = { ...cats[index], image: imageUrl };
+      return { ...prev, categories: cats };
     });
   };
 
@@ -212,6 +226,51 @@ export default function AdminSitePage() {
             </div>
           </div>
         )}
+      </section>
+
+      {/* Categories */}
+      <section className="rounded-2xl border border-border bg-card p-6">
+        <h2 className="mb-4 font-[family-name:var(--font-heading)] text-lg font-medium">Colecciones / Categorías</h2>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Agregá una imagen de fondo para cada categoría que aparece en la home. Recomendado: fotos verticales de buena calidad.
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {(config.categories || [
+            { name: "Cuidado facial", image: "" },
+            { name: "Maquillaje", image: "" },
+            { name: "Accesorios", image: "" },
+          ]).map((cat, index) => (
+            <div key={cat.name} className="rounded-xl border border-border p-4">
+              <p className="mb-3 text-sm font-medium">{cat.name}</p>
+              {cat.image ? (
+                <div className="relative mb-3 aspect-[3/4] overflow-hidden rounded-lg">
+                  <Image src={cat.image} alt={cat.name} fill className="object-cover" sizes="200px" />
+                  <button
+                    onClick={() => updateCategoryImage(index, "")}
+                    className="absolute right-2 top-2 rounded-full bg-black/50 p-1 text-white transition-colors hover:bg-black/70"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <div className="mb-3 flex aspect-[3/4] items-center justify-center rounded-lg bg-muted">
+                  <ImageIcon className="h-8 w-8 text-muted-foreground/30" strokeWidth={1} />
+                </div>
+              )}
+              <div>
+                <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  URL de imagen
+                </label>
+                <input
+                  value={cat.image || ""}
+                  onChange={(e) => updateCategoryImage(index, e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none ring-ring transition-shadow duration-150 focus:ring-1"
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* About Section */}

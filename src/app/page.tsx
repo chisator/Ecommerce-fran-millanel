@@ -6,7 +6,7 @@ import Image from "next/image";
 import { ArrowRight, Sparkles, Truck, Shield } from "lucide-react";
 import { SiteConfig, Product } from "@/types";
 import { ProductCard } from "@/components/ProductCard";
-import { collection, onSnapshot, query, where, orderBy, limit, getDocs } from "firebase/firestore";
+import { collection, onSnapshot, query, where, orderBy, limit, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 const iconComponents: Record<string, React.ReactNode> = {
@@ -63,12 +63,15 @@ export default function HomePage() {
       // Fetch specific featured products
       const products: Product[] = [];
       for (const id of ids) {
-        const snap = await getDocs(query(collection(db, "products"), where("__name__", "==", id)));
-        snap.forEach((doc) => {
-          if (doc.exists()) products.push({ id: doc.id, ...doc.data() } as Product);
-        });
+        const snap = await getDoc(doc(db, "products", id));
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.isActive !== false) {
+            products.push({ id: snap.id, ...data } as Product);
+          }
+        }
       }
-      setFeaturedProducts(products.filter((p) => p.isActive));
+      setFeaturedProducts(products);
       setLoading(false);
     }
     fetchFeatured();
@@ -214,24 +217,42 @@ export default function HomePage() {
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {["Cuidado facial", "Maquillaje", "Accesorios"].map((cat, index) => (
+          {(config.categories || [
+            { name: "Cuidado facial" },
+            { name: "Maquillaje" },
+            { name: "Accesorios" },
+          ]).map((cat, index) => (
             <Link
-              key={cat}
-              href={`/shop?category=${encodeURIComponent(cat)}`}
-              className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-card p-8 transition-all duration-300 hover:border-primary/30 hover:shadow-lg active:scale-[0.98] md:aspect-[3/4]"
+              key={cat.name}
+              href={`/shop?category=${encodeURIComponent(cat.name)}`}
+              className="group relative flex flex-col justify-end overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/30 hover:shadow-lg active:scale-[0.98] md:aspect-[3/4]"
               style={{
                 transitionTimingFunction: "var(--ease-out)",
                 animation: `cardIn 500ms var(--ease-out) ${index * 100}ms both`,
               }}
             >
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                0{index + 1}
-              </span>
-              <div className="space-y-4">
-                <h3 className="font-[family-name:var(--font-heading)] text-2xl font-medium tracking-tight">
-                  {cat}
+              {cat.image ? (
+                <div className="absolute inset-0">
+                  <Image
+                    src={cat.image}
+                    alt={cat.name}
+                    fill
+                    className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                </div>
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-secondary to-muted" />
+              )}
+              <div className="relative z-10 p-8">
+                <span className="mb-3 block text-xs font-semibold uppercase tracking-wider text-white/60">
+                  0{index + 1}
+                </span>
+                <h3 className="mb-4 font-[family-name:var(--font-heading)] text-2xl font-medium tracking-tight text-white">
+                  {cat.name}
                 </h3>
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors duration-200 group-hover:text-primary">
+                <div className="flex items-center gap-2 text-sm font-medium text-white/80 transition-colors duration-200 group-hover:text-white">
                   <span>Descubrir</span>
                   <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" style={{ transitionTimingFunction: "var(--ease-out)" }} />
                 </div>
