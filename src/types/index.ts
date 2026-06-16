@@ -64,4 +64,9 @@ export interface SiteConfig {
   contactEmail?: string;
   contactPhone?: string;
   instagramUrl?: string;
+  featuredProductIds?: string[];
+  heroLabel?: string;
+  ctaTitle?: string;
+  ctaSubtitle?: string;
+  values?: { icon: string; title: string; desc: string }[];
 }
