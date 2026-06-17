@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowRight, Sparkles, Truck, Shield } from "lucide-react";
 import { SiteConfig, Product } from "@/types";
 import { ProductCard } from "@/components/ProductCard";
-import { collection, onSnapshot, query, where, orderBy, limit, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, query, where, limit, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 const iconComponents: Record<string, React.ReactNode> = {
@@ -29,6 +28,11 @@ const defaultConfig: SiteConfig = {
     { icon: "truck", title: "Envío flexible", desc: "Retiro en sucursal o punto en la línea Sarmiento." },
     { icon: "shield", title: "Pago seguro", desc: "Procesado por Mercado Pago con protección total." },
   ],
+  categories: [
+    { name: "Cuidado facial" },
+    { name: "Maquillaje" },
+    { name: "Accesorios" },
+  ],
 };
 
 export default function HomePage() {
@@ -37,45 +41,50 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch site config from Firestore
-    const unsub = onSnapshot(collection(db, "siteConfig"), (snap) => {
-      if (!snap.empty) {
-        const doc = snap.docs[0];
-        setConfig({ id: doc.id, ...doc.data() } as SiteConfig);
-      }
-    });
-    return () => unsub();
-  }, []);
-
-  useEffect(() => {
-    async function fetchFeatured() {
-      const ids = config.featuredProductIds || [];
-      if (ids.length === 0) {
-        // Fallback: show latest 4 active products
-        const q = query(collection(db, "products"), where("isActive", "==", true), orderBy("createdAt", "desc"), limit(4));
-        const snap = await getDocs(q);
-        const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Product[];
-        setFeaturedProducts(data);
-        setLoading(false);
-        return;
-      }
-
-      // Fetch specific featured products
-      const products: Product[] = [];
-      for (const id of ids) {
-        const snap = await getDoc(doc(db, "products", id));
-        if (snap.exists()) {
-          const data = snap.data();
-          if (data.isActive !== false) {
-            products.push({ id: snap.id, ...data } as Product);
-          }
+    async function fetchData() {
+      try {
+        // Fetch site config (single read, no listener)
+        const configSnap = await getDocs(collection(db, "siteConfig"));
+        let siteConfig = defaultConfig;
+        if (!configSnap.empty) {
+          const doc = configSnap.docs[0];
+          siteConfig = { id: doc.id, ...doc.data() } as SiteConfig;
+          setConfig(siteConfig);
         }
+
+        // Fetch featured products
+        const ids = siteConfig.featuredProductIds || [];
+        if (ids.length > 0) {
+          const products: Product[] = [];
+          for (const id of ids) {
+            try {
+              const snap = await getDocs(query(collection(db, "products"), where("__name__", "==", id), where("isActive", "==", true)));
+              snap.forEach((doc) => {
+                if (doc.exists()) products.push({ id: doc.id, ...doc.data() } as Product);
+              });
+            } catch {
+              // Skip if product not found
+            }
+          }
+          setFeaturedProducts(products);
+        } else {
+          // Fallback: latest 4 active products (no orderBy to avoid index)
+          const snap = await getDocs(query(collection(db, "products"), where("isActive", "==", true), limit(8)));
+          const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Product[];
+          // Sort client-side
+          data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setFeaturedProducts(data.slice(0, 4));
+        }
+      } catch (error) {
+        console.error("Home data fetch error:", error);
+        // Use defaults on error
+        setConfig(defaultConfig);
+      } finally {
+        setLoading(false);
       }
-      setFeaturedProducts(products);
-      setLoading(false);
     }
-    fetchFeatured();
-  }, [config.featuredProductIds]);
+    fetchData();
+  }, []);
 
   return (
     <div className="flex flex-col">
@@ -191,7 +200,7 @@ export default function HomePage() {
             <div className="absolute inset-0 bg-gradient-to-br from-secondary to-muted" />
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="font-[family-name:var(--font-heading)] text-7xl font-medium text-muted-foreground/20 md:text-9xl">
-                M
+                F
               </span>
             </div>
           </div>
@@ -217,11 +226,7 @@ export default function HomePage() {
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {(config.categories || [
-            { name: "Cuidado facial" },
-            { name: "Maquillaje" },
-            { name: "Accesorios" },
-          ]).map((cat, index) => (
+          {(config.categories || defaultConfig.categories || []).map((cat, index) => (
             <Link
               key={cat.name}
               href={`/shop?category=${encodeURIComponent(cat.name)}`}
